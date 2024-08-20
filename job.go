@@ -70,7 +70,7 @@ func (j *internalJob) stopTimeReached(now time.Time) bool {
 }
 
 // task stores the function and parameters
-// that are actually run when the job is executed.
+// that are actually run when the job is executed.u
 type task struct {
 	function   any
 	parameters []any
@@ -184,23 +184,23 @@ func (q *quartzJobDefinition) setup(j *internalJob, location *time.Location, now
 	if err != nil {
 		return err
 	}
-	if _, err := trigger.NextFireTime(now.Unix()); err != nil {
+	if _, err := trigger.NextFireTime(now.UnixNano()); err != nil {
 		return err
 	}
 	j.jobSchedule = &quartzJob{triggerSchedule: trigger}
 	return nil
 }
 
-// NewQuartzJob defines a new job using the quartz syntax: `* * * * * * *`.
-func NewQuartzJob(expression string) JobDefinition {
+// QuartzJob defines a new job using the quartz syntax: `* * * * * * *`.
+func QuartzJob(expression string) JobDefinition {
 	return &quartzJobDefinition{
 		expression: expression,
 		location:   nil,
 	}
 }
 
-// NewQuartzJobWithLocation defines a new job using the quartz syntax: `* * * * * * *`, with location.
-func NewQuartzJobWithLocation(expression string, location time.Location) JobDefinition {
+// QuartzJobWithLocation defines a new job using the quartz syntax: `* * * * * * *`, with location.
+func QuartzJobWithLocation(expression string, location time.Location) JobDefinition {
 	return &quartzJobDefinition{
 		expression: expression,
 		location:   &location,
@@ -809,7 +809,7 @@ type quartzJob struct {
 // next implements jobSchedule.
 func (q *quartzJob) next(lastRun time.Time) time.Time {
 	next, _ := q.triggerSchedule.NextFireTime(lastRun.Unix())
-	return time.Unix(next, 0)
+	return time.Unix(0, next)
 }
 
 var _ jobSchedule = (*durationJob)(nil)
