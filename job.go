@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
+	"github.com/reugn/go-quartz/quartz"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/exp/slices"
 )
@@ -158,6 +159,51 @@ func CronJob(crontab string, withSeconds bool) JobDefinition {
 	return cronJobDefinition{
 		crontab:     crontab,
 		withSeconds: withSeconds,
+	}
+}
+
+var _ JobDefinition = (*quartzJobDefinition)(nil)
+
+type quartzJobDefinition struct {
+	expression string
+	location   *time.Location
+}
+
+// setup implements JobDefinition.
+func (q *quartzJobDefinition) setup(j *internalJob, location *time.Location, now time.Time) error {
+	var (
+		trigger quartz.Trigger
+		err     error
+	)
+	if q.location != nil {
+		trigger, err = quartz.NewCronTriggerWithLoc(q.expression, q.location)
+	} else {
+		trigger, err = quartz.NewCronTriggerWithLoc(q.expression, location)
+	}
+
+	if err != nil {
+		return err
+	}
+	if _, err := trigger.NextFireTime(now.Unix()); err != nil {
+		return err
+	}
+	j.jobSchedule = &quartzJob{triggerSchedule: trigger}
+	return nil
+}
+
+// NewQuartzJob defines a new job using the quartz syntax: `* * * * * * *`.
+func NewQuartzJob(expression string) JobDefinition {
+	return &quartzJobDefinition{
+		expression: expression,
+		location:   nil,
+	}
+}
+
+// NewQuartzJobWithLocation defines a new job using the quartz syntax: `* * * * * * *`, with location.
+func NewQuartzJobWithLocation(expression string, location time.Location) JobDefinition {
+	return &quartzJobDefinition{
+		expression: expression,
+		location:   &location,
 	}
 }
 
@@ -752,6 +798,18 @@ type cronJob struct {
 
 func (j *cronJob) next(lastRun time.Time) time.Time {
 	return j.cronSchedule.Next(lastRun)
+}
+
+var _ jobSchedule = (*quartzJob)(nil)
+
+type quartzJob struct {
+	triggerSchedule quartz.Trigger
+}
+
+// next implements jobSchedule.
+func (q *quartzJob) next(lastRun time.Time) time.Time {
+	next, _ := q.triggerSchedule.NextFireTime(lastRun.Unix())
+	return time.Unix(next, 0)
 }
 
 var _ jobSchedule = (*durationJob)(nil)
